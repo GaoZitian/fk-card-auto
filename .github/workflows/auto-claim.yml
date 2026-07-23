@@ -11,11 +11,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      - name: 获取页面并提取 hashsalt
+      - name: 获取页面并提取 hashsalt（保持 cookie）
         id: get_hashsalt
         run: |
-          echo "=== 步骤 1: 获取页面 ==="
-          curl -sL --max-time 15 "https://fk.555655.cn/?cid=3&tid=48" -o page.html
+          echo "=== 步骤 1: 获取页面并保存 cookie ==="
+          curl -sL --max-time 15 -c cookies.txt -b cookies.txt \
+            "https://fk.555655.cn/?cid=3&tid=48" -o page.html
           
           echo "=== 步骤 2: 提取混淆代码 ==="
           HASH_CODE=$(grep -o "var hashsalt=[^;]*;" page.html | sed 's/var hashsalt=//;s/;//')
@@ -25,8 +26,9 @@ jobs:
           HASH_SALT=$(node -e "console.log($HASH_CODE)")
           echo "解码结果: $HASH_SALT"
           
-          echo "=== 步骤 4: 提交订单 ==="
+          echo "=== 步骤 4: 提交订单（携带 cookie）==="
           RESPONSE=$(curl -s -X POST "https://fk.555655.cn/ajax.php?act=pay" \
+            -c cookies.txt -b cookies.txt \
             -H "Content-Type: application/x-www-form-urlencoded; charset=UTF-8" \
             -H "X-Requested-With: XMLHttpRequest" \
             -H "Origin: https://fk.555655.cn" \
@@ -49,6 +51,8 @@ jobs:
             echo "❌ 需要登录"
           elif echo "$RESPONSE" | grep -q '"code":2'; then
             echo "🔒 需要验证码"
+          elif echo "$RESPONSE" | grep -q '"code":-1'; then
+            echo "⚠️ 验证失败，可能需要登录或验证码"
           else
             echo "⚠️ 其他结果: $RESPONSE"
           fi
