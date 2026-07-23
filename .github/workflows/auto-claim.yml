@@ -9,7 +9,7 @@ jobs:
   claim:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       
       - name: 获取页面并提取 hashsalt（保持 cookie）
         id: get_hashsalt
