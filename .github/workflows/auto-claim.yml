@@ -2,8 +2,8 @@ name: 免费名片赞自动领取
 
 on:
   schedule:
-    - cron: '0 8 * * *'  # 每天早上 8 点运行（UTC 时间）
-  workflow_dispatch:     # 允许手动触发
+    - cron: '0 8 * * *'
+  workflow_dispatch:
 
 jobs:
   claim:
@@ -11,38 +11,83 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       
-      - name: 获取页面并提取 hashsalt（保持 cookie）
-        id: get_hashsalt
+      - name: 获取页面并提交订单
+        id: claim
+        env:
+          UA: 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_4_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.4 Mobile/15E148 Safari/604.1'
         run: |
-          echo "=== 步骤 1: 获取页面并保存 cookie ==="
-          curl -sL --max-time 15 -c cookies.txt -b cookies.txt \
-            "https://fk.555655.cn/?cid=3&tid=48" -o page.html
+          COOKIE_JAR="cookies.txt"
+          BASE="https://fk.555655.cn"
           
-          echo "=== 步骤 2: 提取混淆代码 ==="
+          echo "=== 步骤 1: 访问首页 ==="
+          curl -sL --max-time 15 -c "$COOKIE_JAR" -b "$COOKIE_JAR" \
+            -H "User-Agent: $UA" \
+            -H "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8" \
+            -H "Accept-Language: zh-CN,zh-Hans;q=0.9" \
+            -H "Accept-Encoding: gzip, deflate, br" \
+            -H "Connection: keep-alive" \
+            -H "Upgrade-Insecure-Requests: 1" \
+            -H "Sec-Fetch-Dest: document" \
+            -H "Sec-Fetch-Site: none" \
+            -H "Sec-Fetch-Mode: navigate" \
+            -H "Sec-Fetch-User: ?1" \
+            "$BASE/" -o /dev/null
+          
+          echo "Cookie after homepage:"
+          cat "$COOKIE_JAR"
+          
+          echo ""
+          echo "=== 步骤 2: 访问商品页 ==="
+          curl -sL --max-time 15 -c "$COOKIE_JAR" -b "$COOKIE_JAR" \
+            -H "User-Agent: $UA" \
+            -H "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8" \
+            -H "Accept-Language: zh-CN,zh-Hans;q=0.9" \
+            -H "Accept-Encoding: gzip, deflate, br" \
+            -H "Connection: keep-alive" \
+            -H "Upgrade-Insecure-Requests: 1" \
+            -H "Sec-Fetch-Dest: document" \
+            -H "Sec-Fetch-Site: same-origin" \
+            -H "Sec-Fetch-Mode: navigate" \
+            -H "Sec-Fetch-User: ?1" \
+            -H "Referer: $BASE/" \
+            "$BASE/?cid=3&tid=48" -o page.html
+          
+          echo "Cookie after product page:"
+          cat "$COOKIE_JAR"
+          
+          echo ""
+          echo "=== 步骤 3: 提取 hashsalt ==="
           HASH_CODE=$(grep -o "var hashsalt=[^;]*;" page.html | sed 's/var hashsalt=//;s/;//')
           echo "混淆代码: $HASH_CODE"
           
-          echo "=== 步骤 3: 解码 hashsalt ==="
           HASH_SALT=$(node -e "console.log($HASH_CODE)")
           echo "解码结果: $HASH_SALT"
           
-          echo "=== 步骤 4: 提交订单（携带 cookie）==="
-          RESPONSE=$(curl -s -X POST "https://fk.555655.cn/ajax.php?act=pay" \
-            -c cookies.txt -b cookies.txt \
+          echo ""
+          echo "=== 步骤 4: 提交订单（精确匹配成功请求）==="
+          # 注意：成功请求的 body 没有 inputvalue2/3/4/5
+          RESPONSE=$(curl -s -X POST "$BASE/ajax.php?act=pay" \
+            -c "$COOKIE_JAR" -b "$COOKIE_JAR" \
             -H "Content-Type: application/x-www-form-urlencoded; charset=UTF-8" \
             -H "X-Requested-With: XMLHttpRequest" \
-            -H "Origin: https://fk.555655.cn" \
-            -H "Referer: https://fk.555655.cn/?cid=3&tid=48" \
-            -d "tid=48&inputvalue=${{ secrets.QQ_NUMBER }}&inputvalue2=&inputvalue3=&inputvalue4=&inputvalue5=&num=1&hashsalt=$HASH_SALT")
+            -H "Origin: $BASE" \
+            -H "Referer: $BASE/?cid=3&tid=48" \
+            -H "User-Agent: $UA" \
+            -H "Accept: application/json, text/javascript, */*; q=0.01" \
+            -H "Accept-Language: zh-CN,zh-Hans;q=0.9" \
+            -H "Accept-Encoding: gzip, deflate, br" \
+            -H "Connection: keep-alive" \
+            -H "Sec-Fetch-Dest: empty" \
+            -H "Sec-Fetch-Site: same-origin" \
+            -H "Sec-Fetch-Mode: cors" \
+            -d "tid=48&inputvalue=${{ secrets.QQ_NUMBER }}&num=1&hashsalt=$HASH_SALT")
           
           echo "响应: $RESPONSE"
-          
-          # 保存结果到环境变量
           echo "result=$RESPONSE" >> $GITHUB_OUTPUT
           
       - name: 显示结果
         run: |
-          RESPONSE="${{ steps.get_hashsalt.outputs.result }}"
+          RESPONSE="${{ steps.claim.outputs.result }}"
           echo "最终响应: $RESPONSE"
           
           if echo "$RESPONSE" | grep -q '"succ":1\|"code":1'; then
@@ -52,7 +97,7 @@ jobs:
           elif echo "$RESPONSE" | grep -q '"code":2'; then
             echo "🔒 需要验证码"
           elif echo "$RESPONSE" | grep -q '"code":-1'; then
-            echo "⚠️ 验证失败，可能需要登录或验证码"
+            echo "⚠️ 验证失败"
           else
             echo "⚠️ 其他结果: $RESPONSE"
           fi
