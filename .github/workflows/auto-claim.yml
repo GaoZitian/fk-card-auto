@@ -2,7 +2,7 @@ name: 免费名片赞自动领取
 
 on:
   schedule:
-    - cron: '0 8 * * *'
+    - cron: '5 16 * * *'  # UTC 16:05 = 北京时间 00:05
   workflow_dispatch:
 
 jobs:
