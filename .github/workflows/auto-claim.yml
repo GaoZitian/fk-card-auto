@@ -2,7 +2,7 @@ name: 免费名片赞自动领取
 
 on:
   schedule:
-    - cron: '0 8 * * *'  # 每天早上 8 点运行
+    - cron: '0 8 * * *'  # 每天早上 8 点运行（UTC 时间）
   workflow_dispatch:     # 允许手动触发
 
 jobs:
@@ -11,6 +11,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
+      
       - name: Run claim script
+        env:
+          QQ_NUMBER: ${{ secrets.QQ_NUMBER }}
         run: |
+          echo "=== 开始自动领取 ==="
+          echo "QQ: ${{ secrets.QQ_NUMBER }}"
+          echo ""
+          
+          echo "步骤 1: 测试网站访问..."
+          curl -sI --max-time 10 "https://fk.555655.cn/" || echo "HTTPS 访问失败"
+          
+          echo ""
+          echo "步骤 2: 获取页面并解码 hashsalt..."
           node fk_auto_claim.js

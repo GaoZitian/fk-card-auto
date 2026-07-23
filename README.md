@@ -13,33 +13,67 @@
 | 文件 | 说明 |
 |------|------|
 | `fk_auto_claim.py` | Python 脚本，用于本地/Mac 运行 |
-| `fk_auto_claim.js` | JavaScript 版本，用于 Scriptable 或浏览器 |
-| `github/workflows/auto-claim.yml` | GitHub Actions 定时任务配置 |
+| `fk_auto_claim.js` | JavaScript 版本，用于 GitHub Actions 或浏览器 |
+| `.github/workflows/auto-claim.yml` | GitHub Actions 定时任务配置 |
 
-## 使用方法
+## 配置步骤
 
-### 方式一：本地 Python 脚本
+### 1. 设置 QQ 号（Repository Secret）
+
+在 GitHub 仓库中设置 Secrets：
+
+1. 进入仓库 → **Settings** → **Secrets and variables** → **Actions**
+2. 点击 **New repository secret**
+3. 名称：`QQ_NUMBER`
+4. 值：你的 QQ 号码（如 `973879550`）
+5. 点击 **Add secret**
+
+### 2. 启用 GitHub Actions
+
+Actions 已配置为每天早上 8 点（UTC）自动运行。
+
+手动触发：
+1. 进入 **Actions** 标签
+2. 选择 **免费名片赞自动领取**
+3. 点击 **Run workflow**
+
+## 本地使用
+
+### Python 脚本
 
 ```bash
+# 设置 QQ 号
+export QQ_NUMBER=你的QQ号
+
+# 运行脚本
 python3 fk_auto_claim.py
 ```
 
-### 方式二：GitHub Actions（推荐）
+### Scriptable / 浏览器
 
-1. Fork 本仓库
-2. 在仓库 Settings → Secrets 中添加必要配置
-3. 启用 GitHub Actions 定时任务
+```javascript
+// 在浏览器控制台或 Scriptable 中运行
+const qq = "你的QQ号"
+// 运行 fk_auto_claim.js
+```
 
-### 方式三：Scriptable + 快捷指令
+## 定时任务配置
 
-1. 在 Scriptable 中运行 `fk_auto_claim.js` 获取 hashsalt
-2. 通过快捷指令提交订单
+GitHub Actions 定时配置（`.github/workflows/auto-claim.yml`）：
+
+```yaml
+schedule:
+  - cron: '0 8 * * *'  # 每天早上 8 点 UTC 运行
+```
+
+修改时间规则：[crontab.guru](https://crontab.guru/)
 
 ## 注意事项
 
 - `hashsalt` 每次页面加载都会变化，需要动态获取
 - 免费商品每天限领一次
 - 请遵守网站使用条款
+- 不要频繁请求，避免被限制
 
 ## License
 
