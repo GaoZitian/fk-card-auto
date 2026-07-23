@@ -9,7 +9,7 @@ jobs:
   claim:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
       
       - name: 获取页面并提交订单
         id: claim
@@ -20,7 +20,7 @@ jobs:
           BASE="https://fk.555655.cn"
           
           echo "=== 步骤 1: 访问首页 ==="
-          curl -sL --max-time 15 -c "$COOKIE_JAR" -b "$COOKIE_JAR" \
+          curl -sL --compressed --max-time 15 -c "$COOKIE_JAR" -b "$COOKIE_JAR" \
             -H "User-Agent: $UA" \
             -H "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8" \
             -H "Accept-Language: zh-CN,zh-Hans;q=0.9" \
@@ -38,7 +38,7 @@ jobs:
           
           echo ""
           echo "=== 步骤 2: 访问商品页 ==="
-          curl -sL --max-time 15 -c "$COOKIE_JAR" -b "$COOKIE_JAR" \
+          curl -sL --compressed --max-time 15 -c "$COOKIE_JAR" -b "$COOKIE_JAR" \
             -H "User-Agent: $UA" \
             -H "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8" \
             -H "Accept-Language: zh-CN,zh-Hans;q=0.9" \
@@ -57,33 +57,50 @@ jobs:
           
           echo ""
           echo "=== 步骤 3: 提取 hashsalt ==="
-          HASH_CODE=$(grep -o "var hashsalt=[^;]*;" page.html | sed 's/var hashsalt=//;s/;//')
-          echo "混淆代码: $HASH_CODE"
-          
-          HASH_SALT=$(node -e "console.log($HASH_CODE)")
-          echo "解码结果: $HASH_SALT"
+          # 检查页面是否包含 hashsalt
+          if grep -q "hashsalt" page.html; then
+            HASH_CODE=$(grep -o "var hashsalt=[^;]*;" page.html | sed 's/var hashsalt=//;s/;//' | head -1)
+            echo "混淆代码: $HASH_CODE"
+            
+            if [ -n "$HASH_CODE" ]; then
+              HASH_SALT=$(node -e "console.log($HASH_CODE)")
+              echo "解码结果: $HASH_SALT"
+            else
+              echo "❌ 混淆代码为空"
+              HASH_SALT=""
+            fi
+          else
+            echo "❌ 页面中未找到 hashsalt"
+            echo "页面内容前 500 字符:"
+            head -c 500 page.html
+            HASH_SALT=""
+          fi
           
           echo ""
-          echo "=== 步骤 4: 提交订单（精确匹配成功请求）==="
-          # 注意：成功请求的 body 没有 inputvalue2/3/4/5
-          RESPONSE=$(curl -s -X POST "$BASE/ajax.php?act=pay" \
-            -c "$COOKIE_JAR" -b "$COOKIE_JAR" \
-            -H "Content-Type: application/x-www-form-urlencoded; charset=UTF-8" \
-            -H "X-Requested-With: XMLHttpRequest" \
-            -H "Origin: $BASE" \
-            -H "Referer: $BASE/?cid=3&tid=48" \
-            -H "User-Agent: $UA" \
-            -H "Accept: application/json, text/javascript, */*; q=0.01" \
-            -H "Accept-Language: zh-CN,zh-Hans;q=0.9" \
-            -H "Accept-Encoding: gzip, deflate, br" \
-            -H "Connection: keep-alive" \
-            -H "Sec-Fetch-Dest: empty" \
-            -H "Sec-Fetch-Site: same-origin" \
-            -H "Sec-Fetch-Mode: cors" \
-            -d "tid=48&inputvalue=${{ secrets.QQ_NUMBER }}&num=1&hashsalt=$HASH_SALT")
-          
-          echo "响应: $RESPONSE"
-          echo "result=$RESPONSE" >> $GITHUB_OUTPUT
+          echo "=== 步骤 4: 提交订单 ==="
+          if [ -n "$HASH_SALT" ]; then
+            RESPONSE=$(curl -s --compressed -X POST "$BASE/ajax.php?act=pay" \
+              -c "$COOKIE_JAR" -b "$COOKIE_JAR" \
+              -H "Content-Type: application/x-www-form-urlencoded; charset=UTF-8" \
+              -H "X-Requested-With: XMLHttpRequest" \
+              -H "Origin: $BASE" \
+              -H "Referer: $BASE/?cid=3&tid=48" \
+              -H "User-Agent: $UA" \
+              -H "Accept: application/json, text/javascript, */*; q=0.01" \
+              -H "Accept-Language: zh-CN,zh-Hans;q=0.9" \
+              -H "Accept-Encoding: gzip, deflate, br" \
+              -H "Connection: keep-alive" \
+              -H "Sec-Fetch-Dest: empty" \
+              -H "Sec-Fetch-Site: same-origin" \
+              -H "Sec-Fetch-Mode: cors" \
+              -d "tid=48&inputvalue=${{ secrets.QQ_NUMBER }}&num=1&hashsalt=$HASH_SALT")
+            
+            echo "响应: $RESPONSE"
+            echo "result=$RESPONSE" >> $GITHUB_OUTPUT
+          else
+            echo "❌ 无法提交订单：hashsalt 为空"
+            echo "result={\"code\":-1,\"msg\":\"hashsalt 提取失败\"}" >> $GITHUB_OUTPUT
+          fi
           
       - name: 显示结果
         run: |
