@@ -9,12 +9,23 @@ jobs:
   claim:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       
       - name: 安装 Playwright
         run: |
-          npm install playwright
+          npm install playwright-core
           npx playwright install chromium
       
       - name: 运行领取脚本
-        run: node claim.js
+        id: claim
+        env:
+          QQ_NUMBER: ${{ secrets.QQ_NUMBER }}
+        run: |
+          node claim.js
+          
+      - name: 检查结果
+        if: always()
+        run: |
+          echo "=== 结果汇总 ==="
+          echo "QQ: ${{ secrets.QQ_NUMBER }}"
+          echo "退出码: ${{ job.status }}"
