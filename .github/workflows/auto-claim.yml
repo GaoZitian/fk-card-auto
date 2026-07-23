@@ -1,0 +1,16 @@
+name: 免费名片赞自动领取
+
+on:
+  schedule:
+    - cron: '0 8 * * *'  # 每天早上 8 点运行
+  workflow_dispatch:     # 允许手动触发
+
+jobs:
+  claim:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+      - name: Run claim script
+        run: |
+          node fk_auto_claim.js
