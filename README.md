@@ -1,4 +1,4 @@
-# FK 免费名片赞自动领取
+# FK 免费名片赞自动领取（每天100个）
 
 通过 GitHub Actions + Playwright 浏览器自动化，每天自动领取 QQ 名片赞。
 
